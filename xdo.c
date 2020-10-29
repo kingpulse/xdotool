@@ -194,26 +194,9 @@ int xdo_get_window_location(const xdo_t *xdo, Window wid,
   if (ret != 0) {
     int x, y;
     Window unused_child;
-
-    /* The coordinates in attr are relative to the parent window.  If
-     * the parent window is the root window, then the coordinates are
-     * correct.  If the parent window isn't the root window --- which
-     * is likely --- then we translate them. */
-    Window parent;
-    Window root;
-    Window* children;
-    unsigned int nchildren;
-    XQueryTree(xdo->xdpy, wid, &root, &parent, &children, &nchildren);
-    if (children != NULL) {
-      XFree(children);
-    }
-    if (parent == attr.root) {
-      x = attr.x;
-      y = attr.y;
-    } else {
-      XTranslateCoordinates(xdo->xdpy, wid, attr.root,
+   
+    XTranslateCoordinates(xdo->xdpy, wid, attr.root,
                             0, 0, &x, &y, &unused_child);
-    }
 
     if (x_ret != NULL) {
       *x_ret = x;
@@ -785,11 +768,16 @@ int xdo_move_mouse_relative_to_window(const xdo_t *xdo, Window window, int x, in
   XWindowAttributes attr;
   Window unused_child;
   int root_x, root_y;
+  int ret;
+  ret = XGetWindowAttributes(xdo->xdpy, window, &attr);
+  if (ret != 0) {
+      XTranslateCoordinates(xdo->xdpy, window, attr.root,
+                            x, y, &root_x, &root_y, &unused_child);
+      return xdo_move_mouse(xdo, root_x, root_y, XScreenNumberOfScreen(attr.screen));
+  } else {
+      return _is_success("XGetWindowAttributes", ret == 0, xdo);
+  }
 
-  XGetWindowAttributes(xdo->xdpy, window, &attr);
-  XTranslateCoordinates(xdo->xdpy, window, attr.root,
-                        x, y, &root_x, &root_y, &unused_child);
-  return xdo_move_mouse(xdo, root_x, root_y, XScreenNumberOfScreen(attr.screen));
 }
 
 int xdo_move_mouse_relative(const xdo_t *xdo, int x, int y)  {
